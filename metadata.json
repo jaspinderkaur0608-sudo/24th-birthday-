@@ -1,0 +1,6 @@
+{
+  "name": "The Birthday Letter Museum: Chapter 24",
+  "description": "A magical digital world and living museum floating among the stars, preserving letters, memories, and stories for Chapter 24.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
