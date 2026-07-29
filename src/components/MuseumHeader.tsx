@@ -23,6 +23,7 @@ interface MuseumHeaderProps {
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   capsuleCount: number;
+  isSupabaseLive?: boolean;
 }
 
 export const MuseumHeader: React.FC<MuseumHeaderProps> = ({
@@ -33,6 +34,7 @@ export const MuseumHeader: React.FC<MuseumHeaderProps> = ({
   searchQuery,
   setSearchQuery,
   capsuleCount,
+  isSupabaseLive = false,
 }) => {
   const [isMuted, setIsMuted] = useState(soundEngine.getMuted());
 
@@ -77,6 +79,16 @@ export const MuseumHeader: React.FC<MuseumHeaderProps> = ({
                 <span className="px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-400/30 text-amber-300 font-cinzel text-[10px] tracking-widest">
                   CHAPTER 24
                 </span>
+                {isSupabaseLive ? (
+                  <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-400/40 text-emerald-300 font-mono text-[10px]" title="Connected to Supabase shared database">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    Supabase Live
+                  </span>
+                ) : (
+                  <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-400/20 text-amber-300/70 font-mono text-[10px]" title="Supabase credentials pending in Vercel/env">
+                    Supabase Ready
+                  </span>
+                )}
               </div>
               <p className="text-[11px] text-indigo-200/60 font-sans hidden sm:block">
                 A living universe of stories, memories & dreams

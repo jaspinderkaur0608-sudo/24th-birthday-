@@ -2,6 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Letter, LetterCategory, ViewTab, MuseumStats } from './types';
 import { INITIAL_LETTERS, INITIAL_STATS, CATEGORY_CONFIG, RARITY_CONFIG } from './data/initialLetters';
 import { soundEngine } from './services/soundEngine';
+import { 
+  loadLettersFromSupabase, 
+  saveLetterToSupabase, 
+  isSupabaseConfigured 
+} from './services/supabaseClient';
 
 import { StarfieldCanvas } from './components/StarfieldCanvas';
 import { OpeningSequence } from './components/OpeningSequence';
@@ -26,30 +31,21 @@ import {
   Building2,
   Heart,
   Globe2,
-  Lock
+  Lock,
+  Database,
+  RefreshCw,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 
 export default function App() {
   const [showOpening, setShowOpening] = useState<boolean>(true);
-  const [letters, setLetters] = useState<Letter[]>(() => {
-    const saved = localStorage.getItem('birthday_letters_ch24');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return INITIAL_LETTERS;
-      }
-    }
-    return INITIAL_LETTERS;
-  });
+  const [letters, setLetters] = useState<Letter[]>(INITIAL_LETTERS);
+  const [isSupabaseLive, setIsSupabaseLive] = useState<boolean>(isSupabaseConfigured());
+  const [isLoadingLetters, setIsLoadingLetters] = useState<boolean>(true);
+  const [dbError, setDbError] = useState<string | null>(null);
 
-  const [stats, setStats] = useState<MuseumStats>(() => {
-    return {
-      ...INITIAL_STATS,
-      lettersArchived: INITIAL_STATS.lettersArchived + (letters.length - INITIAL_LETTERS.length),
-      storiesPreserved: INITIAL_STATS.storiesPreserved + (letters.length - INITIAL_LETTERS.length),
-    };
-  });
+  const [stats, setStats] = useState<MuseumStats>(INITIAL_STATS);
 
   const [activeTab, setActiveTab] = useState<ViewTab>('museum');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<LetterCategory | 'all'>('all');
@@ -61,14 +57,39 @@ export default function App() {
   const [recentlySubmittedLetter, setRecentlySubmittedLetter] = useState<Letter | null>(null);
   const [storyCardLetter, setStoryCardLetter] = useState<Letter | null>(null);
 
-  // Save letters to localStorage
-  useEffect(() => {
-    localStorage.setItem('birthday_letters_ch24', JSON.stringify(letters));
-  }, [letters]);
+  // Load letters from Supabase on launch
+  const fetchSupabaseLetters = async () => {
+    setIsLoadingLetters(true);
+    const result = await loadLettersFromSupabase();
+    setIsSupabaseLive(result.isLiveDb);
+    if (result.error) {
+      setDbError(result.error);
+    } else {
+      setDbError(null);
+    }
+    setLetters(result.letters);
 
-  // Handle Letter Submission
-  const handleLetterSubmit = (newLetter: Letter) => {
+    // Calculate unique locations represented
+    const uniqueLocations = new Set(result.letters.map(l => l.location.toLowerCase())).size;
+
+    setStats({
+      lettersArchived: result.letters.length,
+      locationsRepresented: Math.max(uniqueLocations, 52),
+      storiesPreserved: result.letters.length,
+      museumWingsOpened: 8,
+    });
+    setIsLoadingLetters(false);
+  };
+
+  useEffect(() => {
+    fetchSupabaseLetters();
+  }, []);
+
+  // Handle Letter Submission to Supabase
+  const handleLetterSubmit = async (newLetter: Letter) => {
     setIsSubmitModalOpen(false);
+
+    // Update local UI immediately for zero-latency response
     setLetters(prev => [newLetter, ...prev]);
     setStats(prev => ({
       ...prev,
@@ -76,6 +97,14 @@ export default function App() {
       storiesPreserved: prev.storiesPreserved + 1,
     }));
     setRecentlySubmittedLetter(newLetter);
+
+    // Save globally to Supabase database
+    const saveResult = await saveLetterToSupabase(newLetter);
+    if (!saveResult.success) {
+      console.warn('Letter saved locally in UI session, Supabase save notice:', saveResult.error);
+    } else {
+      setIsSupabaseLive(true);
+    }
   };
 
   // Select Random Letter
@@ -171,6 +200,7 @@ export default function App() {
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
             capsuleCount={capsuleLetters.length}
+            isSupabaseLive={isSupabaseLive}
           />
 
           {/* Living Museum Animated Stats Counters */}
